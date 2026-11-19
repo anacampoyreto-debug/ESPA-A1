@@ -14,14 +14,11 @@ const mapCredit = select('#map-credit');
 const reliefCredit = mapCredit.innerHTML;
 const storageKey = 'espana-fisica-estudio-v1';
 const soundKey = 'espana-fisica-sonido';
-const guideKey = 'espana-punto-guia';
 const soundToggle = select('#sound-toggle');
 const correctSound = select('#correct-sound');
 
 let soundEnabled = true;
 try { soundEnabled = localStorage.getItem(soundKey) !== 'off'; } catch {}
-let guideEnabled = true;
-try { guideEnabled = localStorage.getItem(guideKey) !== 'off'; } catch {}
 let progress = {};
 try { progress = JSON.parse(localStorage.getItem(storageKey)) || {}; } catch {}
 let mode = 'explore';
@@ -127,7 +124,7 @@ function render(focus = false) {
   updateMap();
   if (focus && current()) {
     (select('#answer') ?? select('#task-title'))?.focus({preventScroll:true});
-    if (current().kind === 'name' || showGuide()) revealPoint(current().place);
+    if (current().kind === 'name') revealPoint(current().place);
   } else if (focus) {
     select('#panel-title')?.focus({preventScroll:true});
   }
@@ -146,7 +143,7 @@ function renderStart() {
   }
   if (mode === 'exam') {
     panel.innerHTML = `<h2 id="panel-title">Simulacro</h2>
-      <p>Combina preguntas de localizar y escribir. La nota sobre 10 y las soluciones aparecen al final.</p>
+      <p>Combina preguntas de localizar y escribir. Cada acierto vale un punto. La nota sobre 10 y las soluciones aparecen al final.</p>
       <div class="row"><button class="primary" id="short-exam">20 preguntas</button><button id="full-exam">Todo el mapa</button></div>
       <h3 class="paper-heading">Para practicar en papel</h3>
       <div class="row"><button id="print-numbered-button">Imprimir ficha numerada</button>
@@ -190,10 +187,6 @@ function examQuestions(items) {
   return shuffle(items).map((place, index) => ({place, kind: index % 2 ? 'name' : 'locate'}));
 }
 
-function showGuide() {
-  return guideEnabled && mode !== 'exam' && current()?.kind === 'locate' && !session.checked;
-}
-
 function pointsScored() {
   return session.answers.filter(({correct}) => correct).length;
 }
@@ -215,8 +208,7 @@ function renderQuestion() {
     ${locate ? `<p><strong>${place.name}</strong></p>` : `<form id="name-form">
       <label for="answer">Tu respuesta</label><input id="answer" autocomplete="off" spellcheck="false" ${checked ? 'disabled' : 'required'}>
       <button class="primary" type="submit" ${checked ? 'disabled' : ''}>${exam ? 'Guardar respuesta' : 'Comprobar'}</button></form>`}
-    ${locate && !checked ? `<p class="muted question-meta">Pulsa el mapa o <button type="button" class="text-button" id="focus-map">responde con el teclado</button>.</p>
-      ${exam ? '' : '<div class="guide-settings"><label><input id="point-guide" type="checkbox"> Mostrar punto guía</label><small id="guide-instruction"></small></div>'}` : ''}
+    ${locate && !checked ? '<p class="muted question-meta">Pulsa el mapa o <button type="button" class="text-button" id="focus-map">responde con el teclado</button>.</p>' : ''}
     <span class="feedback" id="feedback" role="status"></span>
     <div class="row">
     ${exam ? '<button id="skip">Dejar en blanco</button>' : checked
@@ -241,16 +233,6 @@ function renderQuestion() {
     revealPoint(cursor);
     showFeedback('Mueve el punto con las flechas y pulsa Intro para responder.');
   };
-  const guide = select('#point-guide');
-  if (guide) {
-    guide.checked = guideEnabled;
-    guide.onchange = () => {
-      guideEnabled = guide.checked;
-      try { localStorage.setItem(guideKey, guideEnabled ? 'on' : 'off'); } catch {}
-      updateMap();
-      if (showGuide()) revealPoint(place);
-    };
-  }
   if (select('#hint')) select('#hint').onclick = () => showFeedback(place.clue);
   if (select('#skip')) select('#skip').onclick = () => answer(false, '', null, true);
   if (select('#next')) select('#next').onclick = advance;
@@ -350,7 +332,21 @@ function pointSegmentDistance(x, y, [ax, ay], [bx, by]) {
   return Math.hypot(x - ax - fraction * dx, y - ay - fraction * dy);
 }
 
-function guideRadius() {
+function pointInPolygon(polygon, x, y) {
+  let inside = false;
+  let [previousX, previousY] = polygon[polygon.length - 1];
+  for (const [nextX, nextY] of polygon) {
+    if ((previousY > y) !== (nextY > y)
+      && x < nextX + (y - nextY) * (previousX - nextX) / (previousY - nextY)) {
+      inside = !inside;
+    }
+    previousX = nextX;
+    previousY = nextY;
+  }
+  return inside;
+}
+
+function locationTolerance() {
   const renderedWidth = svg.getBoundingClientRect().width || mapWidth;
   return Math.max(23, Math.min(38, 16 * mapWidth / renderedWidth));
 }
@@ -360,7 +356,11 @@ function markerPositions(place) {
 }
 
 function matchLocation(place, x, y) {
-  const radius = guideRadius();
+  if (place.waterRegions) {
+    return place.waterRegions.some((region) => pointInPolygon(region, x, y))
+      && !place.landExclusions?.some((region) => pointInPolygon(region, x, y));
+  }
+  const radius = locationTolerance();
   if (markerPositions(place).some(([cx,cy]) => Math.hypot(x-cx,y-cy) <= radius)) return true;
   if (place.line) {
     return [place.line, ...(place.extraLines ?? [])].some((line) =>
@@ -398,16 +398,8 @@ function drawPlace(place, shape = true) {
   }
 }
 
-function drawGuide(place) {
-  for (const [x,y] of markerPositions(place)) {
-    createSvg('circle',{cx:x,cy:y,r:guideRadius(),class:'guide-halo'});
-    createSvg('circle',{cx:x,cy:y,r:8,class:'guide-dot'});
-  }
-}
-
 function drawLocateCursor() {
   marker.replaceChildren();
-  if (showGuide()) drawGuide(current().place);
   drawPoint(cursor.x,cursor.y,'#2c4344',7);
 }
 
@@ -426,14 +418,12 @@ function updateMap() {
   svg.setAttribute('aria-label', locate ? 'Mapa interactivo. Usa las flechas y pulsa Intro.' : 'Capa interactiva del mapa');
   marker.replaceChildren();
   if (mode === 'explore' && explored && !showSource) drawPlace(explored);
-  if (question && (question.kind === 'name' || session.checked)) drawPlace(question.place);
-  if (showGuide()) drawGuide(question.place);
-  const guideInstruction = select('#guide-instruction');
-  if (guideInstruction) guideInstruction.textContent = showGuide()
-    ? 'Pulsa dentro del círculo. Si es un río o una cordillera, también vale señalar otro tramo.'
-    : 'Señala el lugar sin el punto guía.';
-  select('#map-instruction').textContent = showGuide() ? 'Pulsa dentro del círculo o cerca del trazado del lugar.'
-    : locate ? 'Pulsa el mapa para responder. Si hace falta, deslízalo hacia los lados.'
+  if (question && session.checked) drawPlace(question.place);
+  else if (question?.kind === 'name') {
+    const {x, y, type} = question.place;
+    drawPoint(x, y, categories[type][1]);
+  }
+  select('#map-instruction').textContent = locate ? 'Pulsa la zona del lugar. Si es un río o una cordillera, puedes señalar cualquier tramo de su trazado.'
     : mode === 'explore' ? 'Elige un nombre para verlo en el mapa.'
     : question?.kind === 'name' ? 'Fíjate en el lugar señalado.' : `Mapa físico mudo de ${atlasName}.`;
 }
@@ -539,15 +529,10 @@ zoomToggle.onclick = () => {
   zoomToggle.setAttribute('aria-pressed', String(zoomed));
   zoomToggle.textContent = zoomed ? 'Reducir mapa' : 'Ampliar mapa';
   const question = current();
-  if (showGuide()) updateMap();
-  const visiblePlace = question && (question.kind === 'name' || session.checked || showGuide()) ? question.place
+  const visiblePlace = question && (question.kind === 'name' || session.checked) ? question.place
     : mode === 'explore' && !showSource ? explored : null;
   if (visiblePlace) revealPoint(visiblePlace);
 };
-
-window.addEventListener('resize', () => {
-  if (showGuide()) updateMap();
-});
 
 sourceToggle.onclick = () => { showSource = !showSource; updateMap(); };
 document.querySelectorAll('[data-mode]').forEach((button) => { button.onclick = () => setMode(button.dataset.mode); });

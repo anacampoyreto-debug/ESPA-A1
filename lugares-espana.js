@@ -26,9 +26,53 @@ const categories = {
   ]
 };
 const places = [
-  {"id":0,"type":"agua","name":"Mar Cantábrico","x":490,"y":35,"clue":"Baña la costa norte peninsular, entre Galicia y el País Vasco.","line":null,"area":[490,35,172,26],"aliases":[],"zones":null,"markers":null},
-  {"id":1,"type":"agua","name":"Mar Mediterráneo","x":1145,"y":799,"clue":"Baña el litoral oriental y parte del sur peninsular, además de Baleares.","line":null,"area":[1145,799,160,123],"aliases":[],"zones":null,"markers":null},
-  {"id":2,"type":"agua","name":"Océano Atlántico","x":170,"y":965,"clue":"Baña la costa occidental peninsular y rodea las islas Canarias.","line":null,"area":[170,965,135,51],"aliases":[],"zones":[[170,965,135,51],[34,429,43,173],[34,760,44,125],[130,977,105,36]],"markers":null},
+  {"id":0,"type":"agua","name":"Mar Cantábrico","x":490,"y":35,"clue":"Baña la costa norte peninsular, entre Galicia y el País Vasco.","line":null,"area":null,"aliases":[],"zones":null,"markers":null,
+    "waterRegions":[[
+      [215,0], [824,0], [809,51], [793,69], [733,72], [685,67], [619,76],
+      [555,78], [507,62], [440,48], [387,43], [328,54], [271,50], [237,44],
+      [215,37]
+    ]]
+  },
+  {"id":1,"type":"agua","name":"Mar Mediterráneo","x":1145,"y":799,"clue":"Baña el litoral oriental y parte del sur peninsular, además de Baleares.","line":null,"area":null,"aliases":[],"zones":null,"markers":null,
+    "waterRegions":[[
+      [432,1015], [465,988], [479,967], [510,965], [566,950], [625,956], [655,949],
+      [703,949], [742,936], [770,947], [789,923], [800,885], [822,856], [855,852],
+      [902,827], [910,787], [937,752], [950,722], [996,672], [970,628], [952,602],
+      [944,576], [960,524], [1000,498], [1029,446], [1054,429], [1041,401], [1084,383],
+      [1151,365], [1183,339], [1227,332], [1249,301], [1291,265], [1297,224], [1284,177],
+      [1305,110], [1338,80], [1364,66], [1440,66], [1440,902], [1354,922], [1268,929],
+      [1157,977], [1101,969], [1036,983], [983,1029], [940,1052], [885,1100], [848,1131],
+      [793,1124], [767,1144], [735,1128], [687,1151], [644,1140], [601,1125], [544,1091],
+      [480,1071], [434,1052]
+    ]],
+    "landExclusions": [
+      [[1094,666],[1091,653],[1123,637],[1134,650],[1127,667],[1102,679]],
+      [[1203,586],[1224,570],[1254,556],[1289,536],[1327,552],[1310,572],[1319,606],[1271,624],[1259,604],[1233,609],[1225,594]],
+      [[1350,535],[1366,515],[1381,509],[1403,520],[1411,541],[1388,542]]
+    ]
+  },
+  {"id":2,"type":"agua","name":"Océano Atlántico","x":170,"y":965,"clue":"Baña la costa occidental peninsular y rodea las islas Canarias.","line":null,"area":null,"aliases":[],"zones":null,"markers":null,
+    "waterRegions":[[
+      [0,0], [215,0], [215,37], [155,41], [126,65], [114,89], [85,103],
+      [62,125], [72,159], [98,173], [81,202], [82,245], [69,273], [63,323],
+      [75,355], [67,400], [51,456], [46,503], [30,551], [34,585], [20,628],
+      [2,661], [2,689], [39,700], [88,667], [96,712], [84,752], [75,792],
+      [72,833], [61,874], [99,899], [149,911], [198,903], [247,897], [275,904],
+      [304,926], [332,937], [354,961], [360,994], [383,1030], [424,1046], [411,1081],
+      [388,1119], [358,1179], [0,1179]
+    ]],
+    "landExclusions": [
+      [[5,1087],[6,1066],[24,1068],[34,1091],[18,1104]],
+      [[39,1099],[40,1074],[54,1069],[62,1081],[55,1100]],
+      [[60,1124],[74,1111],[87,1120],[85,1134],[65,1137]],
+      [[98,1119],[99,1101],[115,1097],[123,1111],[116,1122]],
+      [[121,1108],[118,1085],[134,1078],[151,1084],[145,1101]],
+      [[156,1141],[159,1123],[179,1116],[198,1126],[196,1144],[174,1150]],
+      [[222,1139],[222,1120],[249,1110],[262,1085],[267,1059],[284,1053],[285,1084],[268,1110],[247,1133]],
+      [[281,1063],[283,1042],[308,1017],[326,1019],[319,1041],[299,1067]],
+      [[358,1047],[385,1047],[419,1073],[400,1115],[374,1160],[358,1179]]
+    ]
+  },
   {"id":3,"type":"mesetas","name":"Meseta Central","x":468,"y":412,"clue":"Ocupa gran parte del interior peninsular. El Sistema Central la divide en dos.","line":null,"area":[468,412,169,174],"aliases":[],"zones":null,"markers":null},
   {"id":4,"type":"mesetas","name":"Submeseta Norte","x":470,"y":306,"clue":"La parte de la Meseta que queda al norte del Sistema Central. La atraviesa el Duero.","line":null,"area":[470,306,151,72],"aliases":[],"zones":null,"markers":null},
   {"id":5,"type":"mesetas","name":"Submeseta Sur","x":546,"y":592,"clue":"La parte de la Meseta que queda al sur del Sistema Central. Por ella discurren el Tajo y el Guadiana.","line":null,"area":[546,592,182,95],"aliases":[],"zones":null,"markers":null},

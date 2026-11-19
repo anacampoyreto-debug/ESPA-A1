@@ -90,13 +90,6 @@ progress::-webkit-progress-value{background:#9cdaba}
 @media(max-width:480px){.atlas-head{align-items:flex-start}.atlas-head h2{max-width:12rem}.map-actions button{font-size:.78rem}}
 .session-meta{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:6px 10px}
 .points-count{border-radius:6px;padding:.15rem .45rem;background:#e1f2e8;color:#18513a;font-size:.88rem;white-space:nowrap}
-.guide-settings{margin:.65rem 0;color:var(--soft);font-size:.88rem}
-.guide-settings label{display:flex;align-items:center;gap:.45rem;color:var(--ink)}
-.guide-settings input{width:1.1rem;height:1.1rem;min-height:auto;padding:0;margin:0;accent-color:var(--green)}
-.guide-settings small{font-size:inherit}
-.guide-halo,.guide-dot{stroke-width:2.5;vector-effect:non-scaling-stroke}
-.guide-halo{fill:#fff5d480;stroke:#752e19}
-.guide-dot{fill:#a53420;stroke:#fff}
 .map-scroll{background:#e7eff6}
 .map-frame{width:min(100%,calc(clamp(360px, calc(100vh - 350px), 780px) * 1440 / 1179));min-width:0;margin-inline:auto}
 .map-frame.is-zoomed{margin-inline:0}
