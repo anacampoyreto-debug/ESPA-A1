@@ -83,7 +83,9 @@ function options() {
 }
 
 function start(questions) {
-  session = {questions, index: 0, answers: [], checked: false, attempts: 0, result: null};
+  const roundChoices = mode === 'locate' ? layoutChoices(questions.map(({place}) => place)
+    .sort((a,b) => a.id - b.id)) : null;
+  session = {questions, index: 0, answers: [], checked: false, attempts: 0, result: null, roundChoices};
   cursor = null;
   render(true);
 }
@@ -191,11 +193,21 @@ function pointsScored() {
   return session.answers.filter(({correct}) => correct).length;
 }
 
+function locationChoices() {
+  if (mode === 'locate') return session.roundChoices;
+  if (mode === 'review') {
+    const {type} = current().place;
+    return layoutChoices(places.filter((place) => place.type === type));
+  }
+  return null;
+}
+
 function renderQuestion() {
   const question = current();
   const {place, kind} = question;
   const exam = mode === 'exam';
   const locate = kind === 'locate';
+  const choosingPoint = locate && !exam;
   const checked = session.checked;
   const result = session.result;
   const title = exam ? 'Simulacro' : mode === 'review' ? 'Mis fallos' : locate ? 'Localiza el lugar' : 'Escribe el nombre';
@@ -204,11 +216,11 @@ function renderQuestion() {
       <span class="question-meta">Pregunta ${session.index + 1} de ${session.questions.length} · ${categories[place.type][0]}</span>
       ${exam ? '' : `<strong class="points-count" aria-label="Puntuación de la ronda">${pointsScored()} / ${session.questions.length} puntos</strong>`}
     </div>
-    <div class="task"><h3 id="task-title" tabindex="-1">${locate ? 'Señala en el mapa' : '¿Qué lugar está marcado?'}</h3>
+    <div class="task"><h3 id="task-title" tabindex="-1">${locate ? (choosingPoint ? 'Elige el punto correcto' : 'Señala en el mapa') : '¿Qué lugar está marcado?'}</h3>
     ${locate ? `<p><strong>${place.name}</strong></p>` : `<form id="name-form">
       <label for="answer">Tu respuesta</label><input id="answer" autocomplete="off" spellcheck="false" ${checked ? 'disabled' : 'required'}>
       <button class="primary" type="submit" ${checked ? 'disabled' : ''}>${exam ? 'Guardar respuesta' : 'Comprobar'}</button></form>`}
-    ${locate && !checked ? '<p class="muted question-meta">Pulsa el mapa o <button type="button" class="text-button" id="focus-map">responde con el teclado</button>.</p>' : ''}
+    ${locate && !checked ? `<p class="muted question-meta">${choosingPoint ? 'Pulsa uno de los puntos' : 'Pulsa el mapa'} o <button type="button" class="text-button" id="focus-map">responde con el teclado</button>.</p>` : ''}
     <span class="feedback" id="feedback" role="status"></span>
     <div class="row">
     ${exam ? '<button id="skip">Dejar en blanco</button>' : checked
@@ -228,6 +240,12 @@ function renderQuestion() {
   }
   if (select('#focus-map')) select('#focus-map').onclick = () => {
     svg.focus();
+    const choices = locationChoices();
+    if (choices) {
+      focusChoice(choices, cursor?.index ?? 0);
+      showFeedback('Recorre los puntos con las flechas y pulsa Intro para elegir.');
+      return;
+    }
     cursor ||= {...mapCenter};
     drawLocateCursor();
     revealPoint(cursor);
@@ -398,6 +416,62 @@ function drawPlace(place, shape = true) {
   }
 }
 
+// Choose separate representative spots for ranges, archipelagos and provinces.
+const choiceAnchors = new Map([
+  ['Cordilleras Béticas', [840, 800]],
+  ['Sierra de Tramontana', [1222, 575]],
+  ['Sierra Nevada', [682, 906]],
+  ['Islas Baleares', [1204, 627]],
+  ['Islas Canarias', [170, 1078]],
+  ['Provincia de Santa Cruz de Tenerife', [79, 1046]],
+  ['Provincia de Las Palmas', [229, 1049]],
+]);
+
+function layoutChoices(items) {
+  const points = [];
+  const spacing = 39;
+  for (const place of items) {
+    const [anchorX, anchorY] = choiceAnchors.get(place.name) ?? [place.x, place.y];
+    const candidates = [{x: anchorX, y: anchorY}];
+    for (const radius of [spacing, spacing * 1.5, spacing * 2, spacing * 3]) {
+      for (let direction = 0; direction < 8; direction++) {
+        const angle = direction * Math.PI / 4;
+        candidates.push({x: anchorX + radius * Math.cos(angle), y: anchorY + radius * Math.sin(angle)});
+      }
+    }
+    const point = candidates.find(({x,y}) =>
+      x >= mapX + 12 && x <= mapX + mapWidth - 12 && y >= mapY + 12 && y <= mapY + mapHeight - 12
+      && points.every((p) => Math.hypot(x-p.x, y-p.y) >= spacing - 0.01));
+    points.push({...point, anchorX, anchorY, place});
+  }
+  return points.sort((a,b) => a.x - b.x || a.y - b.y);
+}
+
+function drawChoices(choices, solution) {
+  marker.replaceChildren();
+  for (const {x,y,anchorX,anchorY} of choices) {
+    if (x !== anchorX || y !== anchorY) {
+      createSvg('line', {x1:x, y1:y, x2:anchorX, y2:anchorY, class:'choice-leader'});
+    }
+  }
+  choices.forEach(({x,y,place}, index) => {
+    if (solution === place || (!solution && index === cursor?.index)) {
+      createSvg('circle',{cx:x,cy:y,r:19,class:solution ? 'choice-solution' : 'choice-focus'});
+    }
+    createSvg('circle',{cx:x,cy:y,r:12,class:'choice-point'});
+  });
+}
+
+function focusChoice(choices, index) {
+  cursor = {index};
+  drawChoices(choices);
+  revealPoint(choices[index]);
+}
+
+function answerChoice(choice) {
+  answer(choice.place === current().place, '', {x:choice.x, y:choice.y});
+}
+
 function drawLocateCursor() {
   marker.replaceChildren();
   drawPoint(cursor.x,cursor.y,'#2c4344',7);
@@ -406,6 +480,7 @@ function drawLocateCursor() {
 function updateMap() {
   const question = current();
   const locate = question?.kind === 'locate' && !session.checked;
+  const choices = question?.kind === 'locate' ? locationChoices() : null;
   sourceToggle.hidden = mode !== 'explore';
   sourceToggle.setAttribute('aria-pressed', String(showSource));
   sourceToggle.textContent = showSource ? 'Volver al mapa mudo' : 'Ver mapa anotado';
@@ -415,15 +490,19 @@ function updateMap() {
   frame.classList.toggle('is-source', showSource);
   frame.classList.toggle('is-locating', locate);
   svg.setAttribute('tabindex', locate ? '0' : '-1');
-  svg.setAttribute('aria-label', locate ? 'Mapa interactivo. Usa las flechas y pulsa Intro.' : 'Capa interactiva del mapa');
+  svg.setAttribute('aria-label', locate
+    ? (choices ? 'Mapa con puntos. Usa las flechas para elegir y pulsa Intro.' : 'Mapa interactivo. Usa las flechas y pulsa Intro.')
+    : 'Capa interactiva del mapa');
   marker.replaceChildren();
   if (mode === 'explore' && explored && !showSource) drawPlace(explored);
-  if (question && session.checked) drawPlace(question.place);
+  if (choices) drawChoices(choices, session.checked ? question.place : null);
+  else if (question && session.checked) drawPlace(question.place);
   else if (question?.kind === 'name') {
     const {x, y, type} = question.place;
     drawPoint(x, y, categories[type][1]);
   }
-  select('#map-instruction').textContent = locate ? 'Pulsa la zona del lugar. Si es un río o una cordillera, puedes señalar cualquier tramo de su trazado.'
+  select('#map-instruction').textContent = locate
+    ? (choices ? 'Elige uno de los puntos. Amplía el mapa si están muy juntos.' : 'Pulsa la zona del lugar. Si es un río o una cordillera, puedes señalar cualquier tramo de su trazado.')
     : mode === 'explore' ? 'Elige un nombre para verlo en el mapa.'
     : question?.kind === 'name' ? 'Fíjate en el lugar señalado.' : `Mapa físico mudo de ${atlasName}.`;
 }
@@ -443,6 +522,21 @@ svg.addEventListener('click', (event) => {
   const bounds = svg.getBoundingClientRect();
   const x = mapX + mapWidth * (event.clientX - bounds.left) / bounds.width;
   const y = mapY + mapHeight * (event.clientY - bounds.top) / bounds.height;
+  const choices = locationChoices();
+  if (choices) {
+    let closest = null;
+    let distance = Math.max(19, 12 * mapWidth / bounds.width);
+    for (const choice of choices) {
+      const offset = Math.hypot(choice.x - x, choice.y - y);
+      if (offset <= distance) {
+        closest = choice;
+        distance = offset;
+      }
+    }
+    if (closest) answerChoice(closest);
+    else showFeedback('Pulsa cerca de uno de los puntos del mapa.');
+    return;
+  }
   cursor = {x,y};
   answer(matchLocation(question.place,x,y), '', cursor);
 });
@@ -453,6 +547,15 @@ svg.addEventListener('keydown', (event) => {
   const directions = {ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
   if (!directions[event.key] && event.key !== 'Enter' && event.key !== ' ') return;
   event.preventDefault();
+  const choices = locationChoices();
+  if (choices) {
+    if (cursor?.index === undefined) focusChoice(choices, 0);
+    else if (directions[event.key]) {
+      const [dx,dy] = directions[event.key];
+      focusChoice(choices, (cursor.index + dx + dy + choices.length) % choices.length);
+    } else answerChoice(choices[cursor.index]);
+    return;
+  }
   cursor ||= {...mapCenter};
   if (directions[event.key]) {
     const [dx,dy] = directions[event.key];
